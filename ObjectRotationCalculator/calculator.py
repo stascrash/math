@@ -1,16 +1,6 @@
 import math
 
 
-class Vec(object):
-	def __init__(self, x=0, y=0, z=0):
-		self.x = x
-		self.y = y
-		self.z = z
-
-	def __call__(self, *args, **kwargs):
-		return self.x, self.y, self.z
-
-
 class Point(object):
 	def __init__(self, x=0., y=0., z=0.):
 		self.x = x
@@ -54,14 +44,21 @@ class Point(object):
 		return Point(x, y, z)
 
 
+class Vec(Point):
+	def __init__(self, x=0, y=0, z=0):
+		super(Vec, self).__init__(x, y, z)
+
+	def __call__(self, *args, **kwargs):
+		return self.x, self.y, self.z
+
 
 class Circle(object):
-	def __init__(self, r, x, y):
-		self.center = Point(x, y)
+	def __init__(self, r, x, y, z):
+		self.center = Point(x, y, z)
 		self.radius = r
 
 	def intersect(self, c2):
-		# c1 - Circle One, c2 - Circule Two
+		# self - Circle One, c2 - Circle Two
 
 		# Get distance between circle-centers
 		distance = math.sqrt((c2.center.x - self.center.x) ** 2 + (c2.center.y - self.center.y) ** 2)
@@ -78,7 +75,7 @@ class Circle(object):
 			b = distance - a
 			h = math.sqrt(self.radius**2 - a**2)
 
-			chord_center = self.center + (c2.center - self.center)*a / distance
+			chord_center = self.center + (c2.center - self.center) * a / distance
 
 			intersection_p1_x = chord_center.x + h * (self.center.y - c2.center.y) / distance
 			intersection_p1_y = chord_center.y - h * (self.center.x - c2.center.x) / distance
@@ -103,7 +100,7 @@ class Triangle(object):
 		# Vertexes:
 		self.A, self.B, self.C = self.get_vertexes(*size)
 
-		self.points = [self.A, self.B, self.C] # adding to vertex-list for convenience
+		self.points = [self.A, self.B, self.C]  # adding to vertex-list for convenience
 		self.update_properties()
 
 	def update_properties(self):
@@ -119,9 +116,6 @@ class Triangle(object):
 		self.area = self.get_area()
 		self.height = self.get_height()
 		self.height_pt = self.get_height_point()
-
-		# Distance from each vertex to centroid
-		# self.a_centroid, self.b_centroid, self.c_centroid = self.get_centroid_lengths()
 
 	def get_centroid_lengths(self):
 		"""return distance from each vertex to centroid"""
@@ -168,12 +162,12 @@ class Triangle(object):
 		# Plot  point A at origin 0,0
 		pt_a = Point()
 		# Build circle - A with center in pt_a and radius of side_b
-		circle_a = Circle(side_b, pt_a.x, pt_a.y)
+		circle_a = Circle(side_b, pt_a.x, pt_a.y, pt_a.z)
 
 		# Plot point B on X-axis with distance x=side_a
 		pt_b = Point(x=side_a)
 		# Build circle with center at point B and radius side_c
-		circle_b = Circle(side_c, pt_b.x, pt_b.y)
+		circle_b = Circle(side_c, pt_b.x, pt_b.y, pt_b.z)
 
 		# Intersect Circle_A with Circle_B to get (x,y) location for pt_c
 		pt_c = circle_a.intersect(circle_b)[0]
@@ -203,38 +197,46 @@ def translate_coords(object_, new_coords_point):
 		point.y = point.y - new_coords_point.y
 		point.z = point.z - new_coords_point.z
 
-def rotate_obj_on_xyz(object_, x_axis_deg, y_axis_deg, z_axis_deg):
+
+def rotate_obj_on_xyz(object_, rot_vec):
 	for point in object_.points:
 		# Find current direction relative to center
 		distance = point.get_distance(object_.centroid)
 
 		# A, B, G - alpha, Beta, Gamma angle abbreviations
 		# Get direction-angle for each axis
-		cosA = point.x / distance
-		cosB = point.y / distance
-		cosG = point.z / distance
+		cos_a = point.x / distance
+		cos_b = point.y / distance
+		cos_g = point.z / distance
 		# Set global rotation in new position (radians) and get cos
-		newCosA = math.cos(math.acos(cosA) + math.radians(x_axis_deg))
-		newCosB = math.cos(math.acos(cosB) + math.radians(y_axis_deg))
-		newCosG = math.cos(math.acos(cosG) + math.radians(z_axis_deg))
+		new_cos_a = math.cos(math.acos(cos_a) + math.radians(rot_vec.x))
+		new_cos_b = math.cos(math.acos(cos_b) + math.radians(rot_vec.y))
+		new_cos_g = math.cos(math.acos(cos_g) + math.radians(rot_vec.z))
 
 		# Set new X,Y,Z for point after rotation
-		point.x = distance * newCosA
-		point.y = distance * newCosB
-		point.z = distance * newCosG
+		point.x = distance * new_cos_a
+		point.y = distance * new_cos_b
+		point.z = distance * new_cos_g
+
 
 def main():
+	rotation_vec = Vec(60, 30, 30)
 	triangle = Triangle(6, 6, 6)
-	new_sys = triangle.centroid
-	new_sys.z = 1.
+
+	# Get point representing new origin of coordinate system
+	coord_origin = triangle.centroid
+	coord_origin.z = 1.
+	# translate all triangle-point to work with new origin
 	translate_coords(triangle, triangle.centroid)
 	triangle.update_properties()
-	rotate_obj_on_xyz(triangle, 60, 30, 30)
-	triangle.update_properties()
-	translate_coords(triangle, -new_sys)
-	triangle.update_properties()
-	print(triangle)
 
+	# Rotate Triangle's points
+	rotate_obj_on_xyz(triangle, rotation_vec)
+	triangle.update_properties()
+
+	# Translate triangle back to original coordinate system
+	translate_coords(triangle, -coord_origin)
+	triangle.update_properties()
 
 
 if __name__ == '__main__':
