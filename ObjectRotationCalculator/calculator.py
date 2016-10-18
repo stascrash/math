@@ -1,6 +1,38 @@
 import math
 
 
+def translate_coords(object_, new_coords_point):
+	"""
+	Change coordinate for object to new. adjust all points to
+	represent their position in new coordinate system.
+	"""
+	for point in object_.points:
+		point.x = point.x - new_coords_point.x
+		point.y = point.y - new_coords_point.y
+		point.z = point.z - new_coords_point.z
+
+
+def rotate_obj_on_xyz(object_, rot_vec):
+	for point in object_.points:
+		# Find current direction relative to center
+		distance = point.get_distance(object_.centroid)
+
+		# A, B, G - alpha, Beta, Gamma angle abbreviations
+		# Get direction-angle for each axis
+		cos_a = point.x / distance
+		cos_b = point.y / distance
+		cos_g = point.z / distance
+		# Set global rotation in new position (radians) and get cos
+		new_cos_a = math.cos(math.acos(cos_a) + math.radians(rot_vec.x))
+		new_cos_b = math.cos(math.acos(cos_b) + math.radians(rot_vec.y))
+		new_cos_g = math.cos(math.acos(cos_g) + math.radians(rot_vec.z))
+
+		# Set new X,Y,Z for point after rotation
+		point.x = distance * new_cos_a
+		point.y = distance * new_cos_b
+		point.z = distance * new_cos_g
+
+
 class Point(object):
 	def __init__(self, x=0., y=0., z=0.):
 		self.x = x
@@ -143,9 +175,16 @@ class Triangle(object):
 		return self.AB + self.BC + self.AC
 
 	def get_center(self):
-		Ox = (self.A.x + self.B.x + self.C.x) / 3.
-		Oy = (self.A.y + self.B.y + self.C.y) / 3.
-		return Point(x=Ox, y=Oy)
+		# Center of side CB Where D is mid-point, Xd - coord for X and Yd coord for Y
+		# Center of Triangle: P, Xp - for coord X and Yp for coord Y
+		# Distance from A to D, therefore lambda is 2
+		Xd = (self.B.x + self.C.x) / 2.
+		Yd = (self.B.y + self.C.y) / 2.
+		Zd = (self.B.z + self.C.z) / 2.
+		Xp = (self.A.x + 2 * Xd) / 3.
+		Yp = (self.A.y + 2 * Yd) / 3.
+		Zp = (self.A.z + 2 * Zd) / 3.
+		return Point(Xp, Yp, Zp)
 
 	def get_vertexes(self, *size):
 		"""
@@ -187,56 +226,76 @@ class Triangle(object):
 		return math.degrees(math.acos(alpha)), math.degrees(math.acos(beta)), math.degrees(math.acos(gamma))
 
 
-def translate_coords(object_, new_coords_point):
-	"""
-	Change coordinate for object to new. adjust all points to
-	represent their position in new coordinate system.
-	"""
-	for point in object_.points:
-		point.x = point.x - new_coords_point.x
-		point.y = point.y - new_coords_point.y
-		point.z = point.z - new_coords_point.z
+class Prism(object):
+	def __init__(self, height, *size):
+		self._top = Triangle(*size)
+		translate_coords(self._top, Point(0, 0, height))
+		self._bottom = Triangle(*size)
+		self.points = list()
+		self.points.extend(self._top.points)
+		self.points.extend(self._bottom.points)
+		self.centroid = self._top.centroid
+		self.centroid.z = height / 2.
+
+	def update(self):
+		self._top.update_properties()
+		self._bottom.update_properties()
 
 
-def rotate_obj_on_xyz(object_, rot_vec):
-	for point in object_.points:
-		# Find current direction relative to center
-		distance = point.get_distance(object_.centroid)
+def rotate_prism(rotation_vec):
+	prism = Prism(2, 6, 6, 6)
+	coord_origin = prism.centroid
 
-		# A, B, G - alpha, Beta, Gamma angle abbreviations
-		# Get direction-angle for each axis
-		cos_a = point.x / distance
-		cos_b = point.y / distance
-		cos_g = point.z / distance
-		# Set global rotation in new position (radians) and get cos
-		new_cos_a = math.cos(math.acos(cos_a) + math.radians(rot_vec.x))
-		new_cos_b = math.cos(math.acos(cos_b) + math.radians(rot_vec.y))
-		new_cos_g = math.cos(math.acos(cos_g) + math.radians(rot_vec.z))
+	translate_coords(prism, coord_origin)
+	prism.update()
 
-		# Set new X,Y,Z for point after rotation
-		point.x = distance * new_cos_a
-		point.y = distance * new_cos_b
-		point.z = distance * new_cos_g
+	rotate_obj_on_xyz(prism, rotation_vec)
+	prism.update()
+
+	translate_coords(prism, -coord_origin)
+	prism.update()
+	return prism
+
+
+def rotate_triangles(rotation_vec):
+	# Create triangle pair
+	tri_a = Triangle(6, 6, 6)
+	# tri_b = Triangle(6, 6, 6)
+
+	# Translate 2 units up
+	# translate_coords(tri_b, Point(0, 0, 2))
+	# tri_b.update_properties()
+
+	# Get point representing new origin of coordinate system
+	coord_origin = tri_a.centroid
+	# coord_origin.z = 1.
+
+	# translate all triangle-point to work with new origin
+	translate_coords(tri_a, coord_origin)
+	# translate_coords(tri_b, coord_origin)
+	tri_a.update_properties()
+	# tri_b.update_properties()
+
+	# Rotate Triangle's points
+	rotate_obj_on_xyz(tri_a, rotation_vec)
+	# rotate_obj_on_xyz(tri_b, rotation_vec)
+	tri_a.update_properties()
+	# tri_b.update_properties()
+
+	# Translate triangle back to original coordinate system
+	translate_coords(tri_a, -coord_origin)
+	# translate_coords(tri_b, -coord_origin)
+	tri_a.update_properties()
+	# tri_b.update_properties()
+	return tri_a  #, tri_b
 
 
 def main():
 	rotation_vec = Vec(60, 30, 30)
-	triangle = Triangle(6, 6, 6)
+	tri_a= rotate_triangles(rotation_vec)
+	print('Finish')
 
-	# Get point representing new origin of coordinate system
-	coord_origin = triangle.centroid
-	coord_origin.z = 1.
-	# translate all triangle-point to work with new origin
-	translate_coords(triangle, triangle.centroid)
-	triangle.update_properties()
 
-	# Rotate Triangle's points
-	rotate_obj_on_xyz(triangle, rotation_vec)
-	triangle.update_properties()
-
-	# Translate triangle back to original coordinate system
-	translate_coords(triangle, -coord_origin)
-	triangle.update_properties()
 
 
 if __name__ == '__main__':
